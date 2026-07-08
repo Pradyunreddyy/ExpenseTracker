@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledger — Expense Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg: #0F1419;
+    --surface: #171D26;
+    --surface-raised: #1D242E;
+    --border: #2A323D;
+    --text: #E8E6E1;
+    --text-muted: #8D96A3;
+    --text-faint: #5C6472;
+    --amber: #C9A227;
+    --amber-soft: #E0BC4E;
+    --sage: #7FA486;
+    --brick: #C1655F;
+
+    --cat-food: #C9A227;
+    --cat-transport: #5B8AA6;
+    --cat-shopping: #A65B8A;
+    --cat-bills: #6B8F71;
+    --cat-entertainment: #B87A3D;
+    --cat-health: #7A8FA6;
+    --cat-other: #8A8478;
+
+    --font-display: "Fraunces", Georgia, serif;
+    --font-body: "Inter", -apple-system, sans-serif;
+    --font-mono: "JetBrains Mono", "SF Mono", monospace;
+  }
+
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    line-height: 1.5;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+  #app{ max-width: 1180px; margin: 0 auto; padding: 2.25rem 1.5rem 4rem; }
+
+  ::selection{ background: var(--amber); color: #17130a; }
+
+  button{ font-family: inherit; cursor: pointer; }
+  input, select{ font-family: inherit; }
+
+  :focus-visible{ outline: 2px solid var(--amber); outline-offset: 2px; }
+
+  .mono{ font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+  /* ---------- Header ---------- */
+  .header{
+    display:flex; justify-content: space-between; align-items: flex-end;
+    padding-bottom: 1.5rem; margin-bottom: 1.75rem;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap; gap: 1rem;
+  }
+  .brand .wordmark{
+    font-family: var(--font-display); font-weight: 600; font-style: italic;
+    font-size: 2.1rem; letter-spacing: -0.01em; color: var(--text);
+  }
+  .brand .tagline{ color: var(--text-muted); font-size: .82rem; margin-top: .15rem; }
+
+  .month-nav{ display:flex; align-items:center; gap: .85rem; }
+  .month-nav .icon-btn{
+    background: var(--surface); border: 1px solid var(--border); color: var(--text);
+    width: 30px; height: 30px; border-radius: 5px; font-size: 1rem; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .month-nav .icon-btn:hover{ border-color: var(--amber); color: var(--amber-soft); }
+  .month-label{ font-family: var(--font-mono); font-size: .95rem; min-width: 9.5rem; text-align:center; }
+
+  /* ---------- Stats ---------- */
+  .stats-row{
+    display:grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+    background: var(--border); border: 1px solid var(--border); border-radius: 8px;
+    overflow:hidden; margin-bottom: 2rem;
+  }
+  .stat-card{ background: var(--surface); padding: 1.1rem 1.3rem; }
+  .stat-label{
+    text-transform: uppercase; font-size: .68rem; letter-spacing: .08em;
+    color: var(--text-faint); margin-bottom: .4rem;
+  }
+  .stat-value{ font-family: var(--font-mono); font-size: 1.5rem; font-weight: 500; }
+  .stat-sub{ font-size: .78rem; margin-top: .3rem; color: var(--text-muted); }
+  .stat-sub.up{ color: var(--brick); }
+  .stat-sub.down{ color: var(--sage); }
+
+  /* ---------- Layout ---------- */
+  .main-grid{ display:grid; grid-template-columns: 1.15fr .85fr; gap: 1.75rem; align-items:start; }
+  @media (max-width: 860px){ .main-grid{ grid-template-columns: 1fr; } }
+
+  .panel{
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 1.35rem 1.4rem; margin-bottom: 1.5rem;
+  }
+  .panel-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem; gap: .75rem; flex-wrap: wrap; }
+  .panel-title{ font-family: var(--font-display); font-weight: 500; font-size: 1.1rem; }
+  .panel-hint{ font-size: .78rem; color: var(--text-faint); margin-top: -.6rem; margin-bottom: 1rem; }
+
+  /* ---------- Buttons ---------- */
+  .btn{ border-radius: 6px; padding: .5rem 1rem; font-size: .85rem; font-weight: 600; border: 1px solid transparent; }
+  .btn-primary{ background: var(--amber); color: #1A1506; }
+  .btn-primary:hover{ background: var(--amber-soft); }
+  .btn-ghost{ background: transparent; border-color: var(--border); color: var(--text); }
+  .btn-ghost:hover{ border-color: var(--text-muted); }
+  .btn-sm{ padding: .3rem .7rem; font-size: .75rem; }
+  .btn-danger{ background: transparent; border-color: var(--brick); color: var(--brick); }
+  .btn-danger:hover{ background: var(--brick); color: #fff; }
+
+  /* ---------- Ledger list ---------- */
+  .ledger-header-row, .ledger-row{
+    display:grid; grid-template-columns: 82px 1fr 150px 100px 56px;
+    gap: .75rem; align-items:center;
+  }
+  .ledger-header-row{
+    padding-bottom: .6rem; border-bottom: 2px solid var(--border);
+    text-transform: uppercase; font-size: .66rem; letter-spacing: .07em; color: var(--text-faint);
+  }
+  .ledger-row{ padding: .8rem 0; border-bottom: 1px solid var(--border); }
+  .ledger-row:last-child{ border-bottom: none; }
+  .ledger-date{ color: var(--text-muted); font-size: .82rem; }
+  .ledger-desc{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ledger-amount{ text-align: right; font-size: .95rem; }
+  .ledger-actions{ display:flex; gap: .3rem; justify-content:flex-end; opacity: .55; }
+  .ledger-row:hover .ledger-actions{ opacity: 1; }
+  .icon-btn-sm{
+    background: transparent; border: none; color: var(--text-muted);
+    width: 24px; height: 24px; border-radius: 4px; font-size: .85rem;
+  }
+  .icon-btn-sm:hover{ background: var(--surface-raised); color: var(--text); }
+  .confirm-row{ display:flex; gap:.4rem; justify-content:flex-end; font-size:.72rem; align-items:center; }
+  .confirm-row span{ color: var(--text-muted); margin-right:.2rem; }
+
+  .cat-tag{
+    display:inline-flex; align-items:center; gap:.4rem; font-size: .78rem;
+    padding: .2rem .55rem; border-radius: 999px; background: var(--surface-raised);
+    border: 1px solid var(--border); max-width: 100%;
+  }
+  .cat-dot{ width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .cat-tag span.cn{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  .empty-state{ padding: 2rem 0; text-align:center; color: var(--text-muted); font-size: .88rem; }
+
+  /* ---------- Charts ---------- */
+  .chart-wrap{ position: relative; height: 210px; }
+  .chart-empty{ height:210px; display:flex; align-items:center; justify-content:center; color: var(--text-faint); font-size:.85rem; }
+
+  /* ---------- Budgets ---------- */
+  .budget-row{ margin-bottom: 1.1rem; }
+  .budget-row:last-child{ margin-bottom: 0; }
+  .budget-top{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom: .4rem; gap: .5rem; }
+  .budget-name{ display:flex; align-items:center; gap:.5rem; font-size: .85rem; }
+  .budget-figures{ font-size: .78rem; color: var(--text-muted); white-space:nowrap; }
+  .budget-figures button{ background:none; border:none; color: var(--amber-soft); font-size:.75rem; font-weight:600; }
+  .gauge{ position: relative; height: 9px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 3px; margin-top: 1.1rem; }
+  .gauge-fill{ position:absolute; top:0; bottom:0; left:0; border-radius: 2px; transition: width .35s ease; }
+  .gauge-tick{ position:absolute; top:-4px; bottom:-4px; width: 2px; background: var(--text-faint); }
+  .gauge-tick-label{ position:absolute; top:-19px; transform: translateX(-50%); font-family: var(--font-mono); font-size: .65rem; color: var(--text-faint); white-space:nowrap; }
+  .budget-input-row{ display:flex; gap:.4rem; margin-top:.3rem; }
+  .budget-input-row input{ width: 100px; background: var(--bg); border:1px solid var(--border); color: var(--text); border-radius:4px; padding: .25rem .5rem; font-family: var(--font-mono); font-size:.8rem; }
+
+  /* ---------- Categories panel ---------- */
+  .cat-chip-list{ display:flex; flex-wrap:wrap; gap: .5rem; align-items:center; }
+  .cat-chip{
+    display:inline-flex; align-items:center; gap:.4rem; padding: .3rem .5rem .3rem .6rem;
+    border-radius: 999px; background: var(--surface-raised); border: 1px solid var(--border); font-size:.8rem;
+  }
+  .cat-chip button{ background:none; border:none; color: var(--text-faint); font-size: .75rem; padding: 0 0 0 .15rem; }
+  .cat-chip button:hover{ color: var(--brick); }
+  .cat-chip-add{ background: transparent; border: 1px dashed var(--text-faint); color: var(--text-muted); border-radius: 999px; padding: .3rem .7rem; font-size: .8rem; }
+  .cat-chip-add:hover{ border-color: var(--amber); color: var(--amber-soft); }
+  .cat-notice{ font-size: .76rem; color: var(--brick); margin-top: .6rem; }
+
+  .new-cat-form{ margin-top: 1rem; padding-top: 1rem; border-top: 1px dashed var(--border); }
+  .new-cat-form input[type="text"]{
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: 5px; padding: .45rem .6rem; font-size: .85rem; width: 100%; margin-bottom: .7rem;
+  }
+  .swatches{ display:flex; gap:.5rem; margin-bottom: .9rem; flex-wrap:wrap; }
+  .swatch{ width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; }
+  .swatch.selected{ border-color: var(--text); }
+  .form-actions{ display:flex; gap: .5rem; }
+
+  /* ---------- Modal ---------- */
+  .modal-overlay{
+    position: fixed; inset: 0; background: rgba(6,8,11,.72);
+    display:flex; align-items:center; justify-content:center; padding: 1.25rem; z-index: 50;
+    animation: fade .15s ease;
+  }
+  @keyframes fade{ from{ opacity:0; } to{ opacity:1; } }
+  .modal{
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    width: 100%; max-width: 420px; padding: 1.5rem;
+  }
+  .modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.1rem; }
+  .modal-title{ font-family: var(--font-display); font-weight: 500; font-size: 1.2rem; }
+  .modal-close{ background:none; border:none; color: var(--text-muted); font-size: 1rem; }
+  .modal-close:hover{ color: var(--text); }
+  .field{ margin-bottom: 1rem; }
+  .field label{ display:block; font-size: .74rem; text-transform: uppercase; letter-spacing:.06em; color: var(--text-faint); margin-bottom: .4rem; }
+  .field input, .field select{
+    width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    border-radius: 6px; padding: .55rem .65rem; font-size: .9rem;
+  }
+  .field input:focus, .field select:focus{ border-color: var(--amber); }
+  .field-error{ color: var(--brick); font-size: .74rem; margin-top: .35rem; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap: .6rem; margin-top: 1.4rem; }
+
+  .visually-hidden{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition: none !important; animation: none !important; }
+  }
+
+  @media (max-width: 560px){
+    .ledger-header-row, .ledger-row{ grid-template-columns: 60px 1fr 76px 46px; }
+    .ledger-header-row span:nth-child(3), .ledger-row .cat-col{ display:none; }
+    .stats-row{ grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="app"><p style="color:#8D96A3; padding:2rem; font-family:'JetBrains Mono',monospace; font-size:.85rem;">Opening the ledger…</p></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var DEFAULT_CATEGORIES = [
+    { name: "Food & Dining", color: "#C9A227" },
+    { name: "Transport", color: "#5B8AA6" },
+    { name: "Shopping", color: "#A65B8A" },
+    { name: "Bills & Utilities", color: "#6B8F71" },
+    { name: "Entertainment", color: "#B87A3D" },
+    { name: "Health", color: "#7A8FA6" },
+    { name: "Other", color: "#8A8478" }
+  ];
+  var SWATCH_COLORS = ["#C9A227","#5B8AA6","#A65B8A","#6B8F71","#B87A3D","#7A8FA6","#8A8478","#6D8FBF","#BF6D9C"];
+
+  var now = new Date();
+  var state = {
+    ready: false,
+    expenses: [],
+    categories: DEFAULT_CATEGORIES.slice(),
+    budgets: {},
+    viewYear: now.getFullYear(),
+    viewMonth: now.getMonth(),
+    modal: null,
+    confirmDeleteId: null,
+    addCategoryOpen: false,
+    selectedSwatch: SWATCH_COLORS[0],
+    categoryNotice: null,
+    editingBudgetCat: null
+  };
+
+  var donutChart = null, trendChart = null;
+
+  function uid(){ return "e" + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+
+  function fmtCurrency(n){
+    n = Number(n) || 0;
+    var opts = n % 1 === 0 ? { maximumFractionDigits: 0 } : { maximumFractionDigits: 2 };
+    return "₹" + n.toLocaleString("en-IN", opts);
+  }
+
+  function monthLabel(y, m){
+    return new Date(y, m, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+  }
+
+  function catColor(name){
+    var c = state.categories.find(function(c){ return c.name === name; });
+    return c ? c.color : "#8A8478";
+  }
+
+  function getMonthExpenses(y, m){
+    return state.expenses.filter(function(e){
+      var d = new Date(e.date + "T00:00:00");
+      return d.getFullYear() === y && d.getMonth() === m;
+    });
+  }
+
+  function sumExpenses(list){
+    return list.reduce(function(s, e){ return s + Number(e.amount); }, 0);
+  }
+
+  function getCategoryTotals(y, m){
+    var list = getMonthExpenses(y, m);
+    var totals = {};
+    list.forEach(function(e){ totals[e.category] = (totals[e.category] || 0) + Number(e.amount); });
+    return totals;
+  }
+
+  function getTrend(y, m, months){
+    var out = [];
+    for (var i = months - 1; i >= 0; i--){
+      var d = new Date(y, m - i, 1);
+      var total = sumExpenses(getMonthExpenses(d.getFullYear(), d.getMonth()));
+      out.push({ label: d.toLocaleString("en-US", { month: "short" }), total: total });
+    }
+    return out;
+  }
+
+  var STORAGE_KEY = "ledger-data-v1";
+
+  // Keep only well-formed expense records, and drop any with a duplicate id
+  // (first occurrence wins) so a corrupted or doubly-written save can't
+  // reintroduce duplicate entries after a reload.
+  function sanitizeExpenses(list){
+    if (!Array.isArray(list)) return [];
+    var seen = {};
+    var out = [];
+    list.forEach(function(e){
+      if (!e || typeof e !== "object") return;
+      if (!e.id || seen[e.id]) return;
+      if (typeof e.amount !== "number" || !isFinite(e.amount)) return;
+      if (typeof e.description !== "string") return;
+      if (typeof e.category !== "string") return;
+      if (typeof e.date !== "string") return;
+      seen[e.id] = true;
+      out.push({ id: e.id, amount: e.amount, description: e.description, category: e.category, date: e.date });
+    });
+    return out;
+  }
+
+  function sanitizeCategories(list){
+    if (!Array.isArray(list) || !list.length) return null;
+    var seen = {};
+    var out = [];
+    list.forEach(function(c){
+      if (!c || typeof c.name !== "string" || typeof c.color !== "string") return;
+      var key = c.name.toLowerCase();
+      if (seen[key]) return;
+      seen[key] = true;
+      out.push({ name: c.name, color: c.color });
+    });
+    return out.length ? out : null;
+  }
+
+  function loadData(){
+    try {
+      var raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw){
+        var parsed = JSON.parse(raw);
+        state.expenses = sanitizeExpenses(parsed.expenses);
+        var cats = sanitizeCategories(parsed.categories);
+        if (cats) state.categories = cats;
+        if (parsed.budgets && typeof parsed.budgets === "object" && !Array.isArray(parsed.budgets)){
+          var cleanBudgets = {};
+          Object.keys(parsed.budgets).forEach(function(k){
+            var v = Number(parsed.budgets[k]);
+            if (v > 0) cleanBudgets[k] = v;
+          });
+          state.budgets = cleanBudgets;
+        }
+      }
+      // No saved data yet (first visit, cleared storage, etc.) — state already
+      // holds its initial defaults, so there is nothing further to do.
+    } catch(e){
+      // Corrupted JSON, storage disabled, or blocked (private browsing,
+      // sandboxed preview, etc.) — fall back to the in-memory defaults
+      // already on state so the app still works for this session.
+      console.error("Could not load saved ledger data from localStorage", e);
+    }
+    state.ready = true;
+    render();
+  }
+
+  function saveData(){
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        expenses: state.expenses, categories: state.categories, budgets: state.budgets
+      }));
+    } catch(e){
+      // Storage full, disabled, or blocked — data stays available for the
+      // rest of this session but won't survive a refresh.
+      console.error("Could not save ledger data to localStorage", e);
+    }
+  }
+
+  /* ---------------- Rendering ---------------- */
+
+  function render(){
+    var app = document.getElementById("app");
+    if (!state.ready){
+      app.innerHTML = '<p style="color:#8D96A3; padding:2rem; font-family:\'JetBrains Mono\',monospace; font-size:.85rem;">Opening the ledger…</p>';
+      return;
+    }
+
+    var y = state.viewYear, m = state.viewMonth;
+    var monthExpenses = getMonthExpenses(y, m).slice().sort(function(a,b){ return b.date.localeCompare(a.date) || 0; });
+    var totalSpent = sumExpenses(monthExpenses);
+    var catTotals = getCategoryTotals(y, m);
+
+    var totalBudget = 0;
+    Object.keys(state.budgets).forEach(function(c){ totalBudget += Number(state.budgets[c]) || 0; });
+    var remaining = totalBudget - totalSpent;
+
+    var topCat = "—";
+    var topAmt = 0;
+    Object.keys(catTotals).forEach(function(c){ if (catTotals[c] > topAmt){ topAmt = catTotals[c]; topCat = c; } });
+
+    var prevDate = new Date(y, m - 1, 1);
+    var prevTotal = sumExpenses(getMonthExpenses(prevDate.getFullYear(), prevDate.getMonth()));
+    var deltaHtml = "";
+    if (prevTotal > 0){
+      var pct = Math.round(((totalSpent - prevTotal) / prevTotal) * 100);
+      if (pct > 0) deltaHtml = '<div class="stat-sub up">↑ ' + pct + '% vs ' + prevDate.toLocaleString("en-US",{month:"short"}) + '</div>';
+      else if (pct < 0) deltaHtml = '<div class="stat-sub down">↓ ' + Math.abs(pct) + '% vs ' + prevDate.toLocaleString("en-US",{month:"short"}) + '</div>';
+      else deltaHtml = '<div class="stat-sub">No change vs ' + prevDate.toLocaleString("en-US",{month:"short"}) + '</div>';
+    } else if (totalSpent > 0) {
+      deltaHtml = '<div class="stat-sub">New spending this month</div>';
+    }
+
+    var html = "";
+    html += headerHtml(y, m);
+    html += statsHtml(totalSpent, remaining, totalBudget, topCat, deltaHtml);
+    html += '<div class="main-grid">';
+    html += '<div class="col-left">' + ledgerPanelHtml(monthExpenses) + '</div>';
+    html += '<div class="col-right">' + chartsPanelHtml(catTotals, y, m) + budgetsPanelHtml(catTotals, y, m) + categoriesPanelHtml() + '</div>';
+    html += '</div>';
+    html += modalHtml();
+
+    app.innerHTML = html;
+    drawCharts(catTotals, y, m);
+
+    var amountInput = document.getElementById("f-amount");
+    if (state.modal && amountInput) amountInput.focus();
+  }
+
+  function headerHtml(y, m){
+    return '' +
+      '<div class="header">' +
+        '<div class="brand">' +
+          '<div class="wordmark">Ledger</div>' +
+          '<div class="tagline">a plain-spoken record of where your money goes</div>' +
+        '</div>' +
+        '<div class="month-nav">' +
+          '<button class="icon-btn" data-action="prev-month" aria-label="Previous month">‹</button>' +
+          '<span class="month-label">' + monthLabel(y, m) + '</span>' +
+          '<button class="icon-btn" data-action="next-month" aria-label="Next month">›</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function statsHtml(totalSpent, remaining, totalBudget, topCat, deltaHtml){
+    var remainingHtml = totalBudget > 0
+      ? '<div class="stat-value">' + fmtCurrency(Math.abs(remaining)) + '</div><div class="stat-sub' + (remaining < 0 ? ' up' : '') + '">' + (remaining < 0 ? "over the " + fmtCurrency(totalBudget) + " budget" : "left of " + fmtCurrency(totalBudget)) + '</div>'
+      : '<div class="stat-value mono" style="font-size:1.05rem; color:var(--text-faint);">no budget set</div><div class="stat-sub">set limits below</div>';
+
+    return '' +
+      '<div class="stats-row">' +
+        '<div class="stat-card"><div class="stat-label">Spent this month</div><div class="stat-value">' + fmtCurrency(totalSpent) + '</div>' + deltaHtml + '</div>' +
+        '<div class="stat-card"><div class="stat-label">Budget remaining</div>' + remainingHtml + '</div>' +
+        '<div class="stat-card"><div class="stat-label">Top category</div><div class="stat-value" style="font-size:1.15rem;">' + escapeHtml(topCat) + '</div></div>' +
+      '</div>';
+  }
+
+  function ledgerPanelHtml(monthExpenses){
+    var rows = "";
+    if (monthExpenses.length === 0){
+      rows = '<div class="empty-state">No entries yet this month. Log your first expense above.</div>';
+    } else {
+      rows = monthExpenses.map(function(e){
+        var d = new Date(e.date + "T00:00:00");
+        var dateStr = d.toLocaleString("en-US", { month: "short", day: "numeric" });
+        var actions = state.confirmDeleteId === e.id
+          ? '<div class="confirm-row"><span>Delete?</span><button class="icon-btn-sm" data-action="confirm-delete" data-id="' + e.id + '" aria-label="Confirm delete">✓</button><button class="icon-btn-sm" data-action="cancel-delete" aria-label="Cancel">✕</button></div>'
+          : '<div class="ledger-actions"><button class="icon-btn-sm" data-action="edit-expense" data-id="' + e.id + '" aria-label="Edit">✎</button><button class="icon-btn-sm" data-action="delete-expense" data-id="' + e.id + '" aria-label="Delete">✕</button></div>';
+        return '' +
+          '<div class="ledger-row">' +
+            '<div class="ledger-date mono">' + dateStr + '</div>' +
+            '<div class="ledger-desc" title="' + escapeHtml(e.description) + '">' + escapeHtml(e.description) + '</div>' +
+            '<div class="cat-col"><span class="cat-tag"><span class="cat-dot" style="background:' + catColor(e.category) + '"></span><span class="cn">' + escapeHtml(e.category) + '</span></span></div>' +
+            '<div class="ledger-amount mono">' + fmtCurrency(e.amount) + '</div>' +
+            actions +
+          '</div>';
+      }).join("");
+    }
+
+    return '' +
+      '<div class="panel">' +
+        '<div class="panel-head">' +
+          '<div class="panel-title">Ledger entries</div>' +
+          '<button class="btn btn-primary" data-action="open-add">+ New entry</button>' +
+        '</div>' +
+        '<div class="ledger-header-row"><span>Date</span><span>Description</span><span>Category</span><span style="text-align:right;">Amount</span><span></span></div>' +
+        rows +
+      '</div>';
+  }
+
+  function chartsPanelHtml(catTotals, y, m){
+    var hasData = Object.keys(catTotals).length > 0;
+    return '' +
+      '<div class="panel">' +
+        '<div class="panel-title" style="margin-bottom:1rem;">Spending by category</div>' +
+        (hasData
+          ? '<div class="chart-wrap"><canvas id="donut-chart"></canvas></div>'
+          : '<div class="chart-empty">No spending logged for ' + monthLabel(y,m) + ' yet.</div>') +
+      '</div>' +
+      '<div class="panel">' +
+        '<div class="panel-title" style="margin-bottom:1rem;">Six-month trend</div>' +
+        '<div class="chart-wrap"><canvas id="trend-chart"></canvas></div>' +
+      '</div>';
+  }
+
+  function budgetsPanelHtml(catTotals, y, m){
+    var rows = state.categories.map(function(cat){
+      var spent = catTotals[cat.name] || 0;
+      var limit = state.budgets[cat.name];
+
+      if (state.editingBudgetCat === cat.name){
+        return '' +
+          '<div class="budget-row">' +
+            '<div class="budget-name"><span class="cat-dot" style="background:' + cat.color + '"></span>' + escapeHtml(cat.name) + '</div>' +
+            '<form class="budget-input-row" data-action="budget-form" data-cat="' + escapeHtml(cat.name) + '">' +
+              '<input type="number" step="1" min="1" name="limit" placeholder="' + fmtCurrency(1000).replace("₹","") + '" value="' + (limit || "") + '" autofocus />' +
+              '<button class="btn btn-ghost btn-sm" type="submit">Save</button>' +
+              (limit ? '<button class="btn btn-ghost btn-sm" type="button" data-action="clear-budget" data-cat="' + escapeHtml(cat.name) + '">Clear</button>' : '') +
+            '</form>' +
+          '</div>';
+      }
+
+      if (!limit){
+        return '' +
+          '<div class="budget-row">' +
+            '<div class="budget-top">' +
+              '<div class="budget-name"><span class="cat-dot" style="background:' + cat.color + '"></span>' + escapeHtml(cat.name) + '</div>' +
+              '<div class="budget-figures">' + fmtCurrency(spent) + ' spent · <button data-action="edit-budget" data-cat="' + escapeHtml(cat.name) + '">set a limit</button></div>' +
+            '</div>' +
+          '</div>';
+      }
+
+      var ratio = spent / limit;
+      var color = ratio > 1 ? "var(--brick)" : ratio >= 0.8 ? "var(--amber)" : "var(--sage)";
+      var scaleMax = Math.max(limit * 1.25, spent * 1.05, limit);
+      var fillPct = Math.min((spent / scaleMax) * 100, 100);
+      var tickPct = (limit / scaleMax) * 100;
+
+      return '' +
+        '<div class="budget-row">' +
+          '<div class="budget-top">' +
+            '<div class="budget-name"><span class="cat-dot" style="background:' + cat.color + '"></span>' + escapeHtml(cat.name) + '</div>' +
+            '<div class="budget-figures">' + fmtCurrency(spent) + ' / ' + fmtCurrency(limit) + ' <button data-action="edit-budget" data-cat="' + escapeHtml(cat.name) + '">edit</button></div>' +
+          '</div>' +
+          '<div class="gauge">' +
+            '<div class="gauge-fill" style="width:' + fillPct + '%; background:' + color + ';"></div>' +
+            '<div class="gauge-tick" style="left:' + tickPct + '%;"></div>' +
+            '<div class="gauge-tick-label" style="left:' + tickPct + '%;">limit</div>' +
+          '</div>' +
+        '</div>';
+    }).join("");
+
+    return '' +
+      '<div class="panel">' +
+        '<div class="panel-title" style="margin-bottom:1.1rem;">Budget limits</div>' +
+        rows +
+      '</div>';
+  }
+
+  function categoriesPanelHtml(){
+    var chips = state.categories.map(function(c){
+      return '<span class="cat-chip"><span class="cat-dot" style="background:' + c.color + '"></span>' + escapeHtml(c.name) + '<button data-action="delete-category" data-cat="' + escapeHtml(c.name) + '" aria-label="Remove category">✕</button></span>';
+    }).join("");
+
+    var addForm = "";
+    if (state.addCategoryOpen){
+      var swatches = SWATCH_COLORS.map(function(sw){
+        return '<button type="button" class="swatch' + (state.selectedSwatch === sw ? " selected" : "") + '" style="background:' + sw + '" data-action="pick-swatch" data-color="' + sw + '"></button>';
+      }).join("");
+      addForm = '' +
+        '<form class="new-cat-form" data-action="category-form">' +
+          '<label class="visually-hidden" for="new-cat-name">Category name</label>' +
+          '<input type="text" id="new-cat-name" name="name" placeholder="Category name" maxlength="24" autofocus />' +
+          '<div class="swatches">' + swatches + '</div>' +
+          '<div class="form-actions">' +
+            '<button type="submit" class="btn btn-primary btn-sm">Add category</button>' +
+            '<button type="button" class="btn btn-ghost btn-sm" data-action="close-category-form">Cancel</button>' +
+          '</div>' +
+        '</form>';
+    }
+
+    return '' +
+      '<div class="panel">' +
+        '<div class="panel-head"><div class="panel-title">Categories</div></div>' +
+        '<div class="cat-chip-list">' + chips +
+          (state.addCategoryOpen ? "" : '<button class="cat-chip-add" data-action="open-category-form">+ Add category</button>') +
+        '</div>' +
+        (state.categoryNotice ? '<div class="cat-notice">' + escapeHtml(state.categoryNotice) + '</div>' : "") +
+        addForm +
+      '</div>';
+  }
+
+  function modalHtml(){
+    if (!state.modal) return "";
+    var mo = state.modal;
+    var isEdit = mo.mode === "edit";
+    var catOptions = state.categories.map(function(c){
+      return '<option value="' + escapeHtml(c.name) + '"' + (c.name === mo.category ? " selected" : "") + '>' + escapeHtml(c.name) + '</option>';
+    }).join("");
+
+    return '' +
+      '<div class="modal-overlay" data-action="overlay">' +
+        '<div class="modal" role="dialog" aria-modal="true" aria-label="' + (isEdit ? "Edit entry" : "New entry") + '">' +
+          '<div class="modal-head">' +
+            '<div class="modal-title">' + (isEdit ? "Edit entry" : "New entry") + '</div>' +
+            '<button class="modal-close" data-action="close-modal" aria-label="Close">✕</button>' +
+          '</div>' +
+          '<form id="expense-form" data-action="expense-form">' +
+            '<div class="field">' +
+              '<label for="f-amount">Amount</label>' +
+              '<input id="f-amount" type="number" name="amount" step="0.01" min="0.01" value="' + (mo.amount || "") + '" placeholder="0.00" />' +
+              (mo.errors && mo.errors.amount ? '<div class="field-error">' + mo.errors.amount + '</div>' : "") +
+            '</div>' +
+            '<div class="field">' +
+              '<label for="f-desc">Description</label>' +
+              '<input id="f-desc" type="text" name="description" maxlength="80" value="' + escapeHtml(mo.description || "") + '" placeholder="What was it for?" />' +
+              (mo.errors && mo.errors.description ? '<div class="field-error">' + mo.errors.description + '</div>' : "") +
+            '</div>' +
+            '<div class="field">' +
+              '<label for="f-cat">Category</label>' +
+              '<select id="f-cat" name="category">' + catOptions + '</select>' +
+            '</div>' +
+            '<div class="field">' +
+              '<label for="f-date">Date</label>' +
+              '<input id="f-date" type="date" name="date" value="' + (mo.date || "") + '" />' +
+              (mo.errors && mo.errors.date ? '<div class="field-error">' + mo.errors.date + '</div>' : "") +
+            '</div>' +
+            '<div class="modal-actions">' +
+              '<button type="button" class="btn btn-ghost" data-action="close-modal">Cancel</button>' +
+              '<button type="submit" class="btn btn-primary">' + (isEdit ? "Save changes" : "Add entry") + '</button>' +
+            '</div>' +
+          '</form>' +
+        '</div>' +
+      '</div>';
+  }
+
+  /* ---------------- Charts ---------------- */
+
+  function drawCharts(catTotals, y, m){
+    if (typeof Chart === "undefined") return;
+
+    var donutCanvas = document.getElementById("donut-chart");
+    if (donutChart){ donutChart.destroy(); donutChart = null; }
+    if (donutCanvas){
+      var labels = Object.keys(catTotals);
+      var data = labels.map(function(l){ return catTotals[l]; });
+      var colors = labels.map(function(l){ return catColor(l); });
+      donutChart = new Chart(donutCanvas, {
+        type: "doughnut",
+        data: { labels: labels, datasets: [{ data: data, backgroundColor: colors, borderColor: "#171D26", borderWidth: 2 }] },
+        options: {
+          responsive: true, maintainAspectRatio: false, cutout: "62%",
+          plugins: {
+            legend: { position: "bottom", labels: { color: "#8D96A3", boxWidth: 10, padding: 12, font: { size: 11, family: "Inter" } } },
+            tooltip: { callbacks: { label: function(ctx){ return " " + ctx.label + ": " + fmtCurrency(ctx.parsed); } } }
+          }
+        }
+      });
+    }
+
+    var trendCanvas = document.getElementById("trend-chart");
+    if (trendChart){ trendChart.destroy(); trendChart = null; }
+    if (trendCanvas){
+      var trend = getTrend(y, m, 6);
+      trendChart = new Chart(trendCanvas, {
+        type: "bar",
+        data: {
+          labels: trend.map(function(t){ return t.label; }),
+          datasets: [{ data: trend.map(function(t){ return t.total; }), backgroundColor: "#C9A227", borderRadius: 3, maxBarThickness: 34 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(ctx){ return " " + fmtCurrency(ctx.parsed.y); } } } },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: "#8D96A3", font: { size: 11, family: "Inter" } } },
+            y: { grid: { color: "#2A323D" }, ticks: { color: "#8D96A3", font: { size: 10, family: "JetBrains Mono" }, callback: function(v){ return "₹" + v; } } }
+          }
+        }
+      });
+    }
+  }
+
+  /* ---------------- Event handling ---------------- */
+
+  function openAddModal(){
+    state.modal = { mode: "add", amount: "", description: "", category: state.categories[0] ? state.categories[0].name : "", date: new Date().toISOString().slice(0,10), errors: {} };
+    render();
+  }
+
+  function openEditModal(id){
+    var e = state.expenses.find(function(e){ return e.id === id; });
+    if (!e) return;
+    state.modal = { mode: "edit", id: id, amount: e.amount, description: e.description, category: e.category, date: e.date, errors: {} };
+    render();
+  }
+
+  document.addEventListener("click", function(ev){
+    var t = ev.target;
+    var el;
+
+    if ((el = t.closest('[data-action="prev-month"]'))){
+      var d1 = new Date(state.viewYear, state.viewMonth - 1, 1);
+      state.viewYear = d1.getFullYear(); state.viewMonth = d1.getMonth();
+      render(); return;
+    }
+    if ((el = t.closest('[data-action="next-month"]'))){
+      var d2 = new Date(state.viewYear, state.viewMonth + 1, 1);
+      state.viewYear = d2.getFullYear(); state.viewMonth = d2.getMonth();
+      render(); return;
+    }
+    if ((el = t.closest('[data-action="open-add"]'))){ openAddModal(); return; }
+    if ((el = t.closest('[data-action="edit-expense"]'))){ openEditModal(el.getAttribute("data-id")); return; }
+    if ((el = t.closest('[data-action="delete-expense"]'))){ state.confirmDeleteId = el.getAttribute("data-id"); render(); return; }
+    if ((el = t.closest('[data-action="cancel-delete"]'))){ state.confirmDeleteId = null; render(); return; }
+    if ((el = t.closest('[data-action="confirm-delete"]'))){
+      var id = el.getAttribute("data-id");
+      state.expenses = state.expenses.filter(function(e){ return e.id !== id; });
+      state.confirmDeleteId = null;
+      saveData(); render(); return;
+    }
+    if ((el = t.closest('[data-action="close-modal"]'))){ state.modal = null; render(); return; }
+    if (t.classList && t.classList.contains("modal-overlay")){ state.modal = null; render(); return; }
+
+    if ((el = t.closest('[data-action="open-category-form"]'))){ state.addCategoryOpen = true; state.selectedSwatch = SWATCH_COLORS[0]; render(); return; }
+    if ((el = t.closest('[data-action="close-category-form"]'))){ state.addCategoryOpen = false; render(); return; }
+    if ((el = t.closest('[data-action="pick-swatch"]'))){ state.selectedSwatch = el.getAttribute("data-color"); render(); return; }
+    if ((el = t.closest('[data-action="delete-category"]'))){
+      var cname = el.getAttribute("data-cat");
+      var inUse = state.expenses.some(function(e){ return e.category === cname; });
+      if (inUse){
+        state.categoryNotice = '"' + cname + '" is used by existing entries and can\'t be removed.';
+        render();
+      } else {
+        state.categories = state.categories.filter(function(c){ return c.name !== cname; });
+        delete state.budgets[cname];
+        state.categoryNotice = null;
+        saveData(); render();
+      }
+      return;
+    }
+
+    if ((el = t.closest('[data-action="edit-budget"]'))){ state.editingBudgetCat = el.getAttribute("data-cat"); render(); return; }
+    if ((el = t.closest('[data-action="clear-budget"]'))){
+      var cb = el.getAttribute("data-cat");
+      delete state.budgets[cb];
+      state.editingBudgetCat = null;
+      saveData(); render(); return;
+    }
+  });
+
+  document.addEventListener("submit", function(ev){
+    var form = ev.target;
+
+    if (form.id === "expense-form"){
+      ev.preventDefault();
+      var fd = new FormData(form);
+      var amount = parseFloat(fd.get("amount"));
+      var description = (fd.get("description") || "").trim();
+      var category = fd.get("category");
+      var date = fd.get("date");
+      var errors = {};
+      if (!amount || amount <= 0) errors.amount = "Enter an amount greater than zero.";
+      if (!description) errors.description = "Give this entry a short description.";
+      if (!date) errors.date = "Pick a date for this entry.";
+
+      if (Object.keys(errors).length){
+        state.modal.amount = fd.get("amount");
+        state.modal.description = description;
+        state.modal.category = category;
+        state.modal.date = date;
+        state.modal.errors = errors;
+        render();
+        return;
+      }
+
+      if (state.modal.mode === "edit"){
+        var idx = state.expenses.findIndex(function(e){ return e.id === state.modal.id; });
+        if (idx > -1) state.expenses[idx] = { id: state.modal.id, amount: amount, description: description, category: category, date: date };
+      } else {
+        state.expenses.push({ id: uid(), amount: amount, description: description, category: category, date: date });
+      }
+      state.modal = null;
+      saveData();
+      render();
+      return;
+    }
+
+    if (form.getAttribute("data-action") === "category-form"){
+      ev.preventDefault();
+      var fd2 = new FormData(form);
+      var name = (fd2.get("name") || "").trim();
+      if (!name) return;
+      var exists = state.categories.some(function(c){ return c.name.toLowerCase() === name.toLowerCase(); });
+      if (exists){ state.categoryNotice = 'A category named "' + name + '" already exists.'; render(); return; }
+      state.categories.push({ name: name, color: state.selectedSwatch });
+      state.addCategoryOpen = false;
+      state.categoryNotice = null;
+      saveData();
+      render();
+      return;
+    }
+
+    if (form.getAttribute("data-action") === "budget-form"){
+      ev.preventDefault();
+      var fd3 = new FormData(form);
+      var cat = form.getAttribute("data-cat");
+      var limit = parseFloat(fd3.get("limit"));
+      if (limit && limit > 0) state.budgets[cat] = limit;
+      state.editingBudgetCat = null;
+      saveData();
+      render();
+      return;
+    }
+  });
+
+  document.addEventListener("keydown", function(ev){
+    if (ev.key === "Escape" && state.modal){ state.modal = null; render(); }
+  });
+
+  loadData();
+})();
+</script>
+</body>
+</html>
